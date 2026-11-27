@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Ladleful",
+    "slug": "ladleful",
+    "scheme": "ladleful",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ladleful.app"
+    },
+    "android": {
+      "package": "com.ladleful.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F6F7F3",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#2F6B3B"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Ladleful to access your photos to add recipe cover images.",
+          "cameraPermission": "Allow Ladleful to use your camera to photograph dishes."
+        }
+      ],
+      "expo-sharing",
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

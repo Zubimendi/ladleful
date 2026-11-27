@@ -1,4 +1,28 @@
-# Ladleful: Story
+# Title: The Phone Is the Source of Truth — Building an Offline-First Recipe Box with SQLite, FTS5 and a Tested Ingredient Parser
+
+---
+
+**Medium Tags:** `#reactnative` `#mobiledev` `#typescript` `#sqlite` `#offlinefirst`
+
+**LinkedIn Hashtags:** `#ReactNative` `#MobileDevelopment` `#TypeScript` `#SQLite` `#ExpoFramework` `#OfflineFirst` `#LocalFirst` `#SoftwareEngineering` `#MobileApp` `#AppDevelopment` `#FullTextSearch` `#PortfolioProject`
+
+---
+
+## Short version (LinkedIn)
+
+Project 5 of my 15-week mobile portfolio roadmap is live: **Ladleful** — an offline-first recipe box for Android and iOS.
+
+Three lessons I want to share:
+
+**1. Offline-first means the phone IS the database.** Every read, search, and merge runs against local SQLite. FTS5 gives sub-50ms full-text search over 1,000 recipes — no spinner, no network, no excuses. The FTS index and tag table are updated in the same transaction as every write, so the index is always consistent and repairable with a single rebuild.
+
+**2. Parsing human text requires explicit, tested rules — not guessing.** The ingredient parser normalizes unicode fractions, extracts quantities (including ranges and mixed numbers), matches units against a typed family table, and splits name from note at the first comma. And it always keeps the raw line — a parse mistake never loses the user's words.
+
+**3. Every import is untrusted.** Web pages get a 2 MB cap, a 15s timeout, and must contain JSON-LD structured data. Backup files go through a zod schema with size limits, ID validation, and unknown-field stripping. Nothing lands in the database without a user review screen first.
+
+Repo: [link]
+
+---
 
 ## The problem
 

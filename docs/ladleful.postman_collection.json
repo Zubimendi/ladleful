@@ -1,0 +1,2186 @@
+{
+  "info": {
+    "_postman_id": "ladleful-pocketbase-api-v1",
+    "name": "Ladleful - PocketBase API",
+    "description": "Complete API test suite for Ladleful's PocketBase backend. Covers auth, recipe CRUD, shopping lists/items, sync operations and security rules.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.1.0"
+  },
+  "variable": [
+    { "key": "baseUrl",      "value": "http://localhost:8090", "type": "string" },
+    { "key": "userEmail",    "value": "testchef@ladleful.app", "type": "string" },
+    { "key": "userPassword", "value": "TestPassword123!", "type": "string" },
+    { "key": "authToken",    "value": "", "type": "string" },
+    { "key": "userId",       "value": "", "type": "string" },
+    { "key": "recipeId",     "value": "", "type": "string" },
+    { "key": "listId",       "value": "", "type": "string" },
+    { "key": "itemId",       "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "PocketBase built-in health endpoint. Confirms the server is running."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has code field', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('code');",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "});",
+                  "",
+                  "pm.test('Response time < 500ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Auth",
+      "item": [
+        {
+          "name": "Register New User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\",\n  \"passwordConfirm\": \"{{userPassword}}\",\n  \"name\": \"Test Chef\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/users/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "users", "records"]
+            },
+            "description": "Register a new user account. PocketBase returns the new user record."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 400 (already exists)', function () {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Response contains user id', function () {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.have.property('id');",
+                  "        pm.expect(json.id).to.be.a('string').and.have.lengthOf.above(0);",
+                  "    });",
+                  "",
+                  "    pm.test('Response contains email', function () {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.have.property('email');",
+                  "        pm.expect(json.email).to.eql(pm.collectionVariables.get('userEmail'));",
+                  "    });",
+                  "",
+                  "    pm.test('Password not exposed in response', function () {",
+                  "        const body = pm.response.text();",
+                  "        pm.expect(body).to.not.include('TestPassword123!');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign In (Auth With Password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/users/auth-with-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "users", "auth-with-password"]
+            },
+            "description": "Sign in with email and password. Saves authToken and userId to collection variables for use by subsequent requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has token field', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('token');",
+                  "    pm.expect(json.token).to.be.a('string').and.have.lengthOf.above(10);",
+                  "});",
+                  "",
+                  "pm.test('Response has record field with id', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('record');",
+                  "    pm.expect(json.record).to.have.property('id');",
+                  "});",
+                  "",
+                  "pm.test('Save authToken and userId', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', json.token);",
+                  "    pm.collectionVariables.set('userId', json.record.id);",
+                  "    pm.expect(pm.collectionVariables.get('authToken')).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign In - Wrong Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity\": \"{{userEmail}}\",\n  \"password\": \"WrongPassword!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/users/auth-with-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "users", "auth-with-password"]
+            },
+            "description": "Attempt sign-in with wrong password — expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 for wrong password', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Response body contains error message', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Auth Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/users/auth-refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "users", "auth-refresh"]
+            },
+            "description": "Exchange the current token for a fresh one. Requires valid Authorization header."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('New token returned', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('token');",
+                  "    pm.collectionVariables.set('authToken', json.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/users/records/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "users", "records", "{{userId}}"]
+            },
+            "description": "Fetch the authenticated user's own profile record."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Record id matches userId variable', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.id).to.eql(pm.collectionVariables.get('userId'));",
+                  "});",
+                  "",
+                  "pm.test('Record has email field', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('email');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Recipes - Happy Path",
+      "item": [
+        {
+          "name": "Create Recipe (Jollof Rice)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"title\": \"Nigerian Jollof Rice\",\n  \"description\": \"Rich, smoky party jollof cooked in a tomato-pepper base with fragrant bay leaves.\",\n  \"servings\": 6,\n  \"prep_minutes\": 20,\n  \"cook_minutes\": 60,\n  \"ingredients\": [\n    {\"raw\":\"2 cups long grain parboiled rice\",\"qty\":2,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"long grain parboiled rice\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"4 large plum tomatoes\",\"qty\":4,\"qtyMax\":null,\"unit\":null,\"name\":\"plum tomatoes\",\"note\":\"blended\",\"group\":\"base\",\"warn\":false},\n    {\"raw\":\"3 red bell peppers (tatashe)\",\"qty\":3,\"qtyMax\":null,\"unit\":null,\"name\":\"red bell peppers\",\"note\":\"tatashe\",\"group\":\"base\",\"warn\":false},\n    {\"raw\":\"2 scotch bonnet peppers\",\"qty\":2,\"qtyMax\":null,\"unit\":null,\"name\":\"scotch bonnet peppers\",\"note\":\"adjust to heat preference\",\"group\":\"base\",\"warn\":true},\n    {\"raw\":\"1 large onion\",\"qty\":1,\"qtyMax\":null,\"unit\":null,\"name\":\"onion\",\"note\":null,\"group\":\"base\",\"warn\":false},\n    {\"raw\":\"1/4 cup vegetable oil\",\"qty\":0.25,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"vegetable oil\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"2 cups chicken stock\",\"qty\":2,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"chicken stock\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"2 bay leaves\",\"qty\":2,\"qtyMax\":null,\"unit\":null,\"name\":\"bay leaves\",\"note\":null,\"group\":\"seasoning\",\"warn\":false},\n    {\"raw\":\"1 tsp curry powder\",\"qty\":1,\"qtyMax\":null,\"unit\":\"tsp\",\"name\":\"curry powder\",\"note\":null,\"group\":\"seasoning\",\"warn\":false},\n    {\"raw\":\"1 tsp thyme\",\"qty\":1,\"qtyMax\":null,\"unit\":\"tsp\",\"name\":\"thyme\",\"note\":null,\"group\":\"seasoning\",\"warn\":false},\n    {\"raw\":\"1 seasoning cube (Maggi or Knorr)\",\"qty\":1,\"qtyMax\":null,\"unit\":null,\"name\":\"seasoning cube\",\"note\":\"Maggi or Knorr\",\"group\":\"seasoning\",\"warn\":false},\n    {\"raw\":\"salt to taste\",\"qty\":null,\"qtyMax\":null,\"unit\":null,\"name\":\"salt\",\"note\":\"to taste\",\"group\":\"seasoning\",\"warn\":false}\n  ],\n  \"steps\": [\n    {\"text\":\"Blend the tomatoes, red bell peppers, scotch bonnet and half the onion until smooth.\"},\n    {\"text\":\"Heat vegetable oil in a heavy-bottomed pot over medium-high heat. Slice remaining onion and fry until golden, about 3 minutes.\"},\n    {\"text\":\"Pour in the blended pepper mix and fry, stirring regularly, until the raw smell disappears and the oil floats to the top — about 15-20 minutes.\"},\n    {\"text\":\"Add chicken stock, bay leaves, curry powder, thyme, seasoning cube and salt. Stir and taste; adjust seasoning.\"},\n    {\"text\":\"Add the washed rice and stir to coat evenly. The liquid should just cover the rice by about 1 cm.\"},\n    {\"text\":\"Cover tightly, reduce heat to the lowest setting and cook for 30 minutes without lifting the lid.\"},\n    {\"text\":\"Remove lid, stir from the bottom, replace lid and cook for a further 10-15 minutes until rice is fully cooked and slightly smoky (the coveted party-jollof bottom crust).\"}\n  ],\n  \"notes\": \"For extra smokiness, finish uncovered over high heat for the last 2 minutes to get the \\\"party jollof\\\" effect.\",\n  \"source_url\": \"\",\n  \"source_name\": \"Family recipe\",\n  \"tags\": [\"Nigerian\", \"rice\", \"party\", \"West African\", \"dinner\"],\n  \"is_favorite\": false,\n  \"times_cooked\": 0,\n  \"client_updated_at\": \"2026-01-15T10:30:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Create a new recipe with full Nigerian Jollof Rice data. Saves recipeId for subsequent requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has id field', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.collectionVariables.set('recipeId', json.id);",
+                  "});",
+                  "",
+                  "pm.test('Title matches', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.title).to.eql('Nigerian Jollof Rice');",
+                  "});",
+                  "",
+                  "pm.test('Owner is current user', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.owner).to.eql(pm.collectionVariables.get('userId'));",
+                  "});",
+                  "",
+                  "pm.test('ingredients and steps are arrays', function () {",
+                  "    const json = pm.response.json();",
+                  "    const ingredients = typeof json.ingredients === 'string' ? JSON.parse(json.ingredients) : json.ingredients;",
+                  "    const steps = typeof json.steps === 'string' ? JSON.parse(json.steps) : json.steps;",
+                  "    pm.expect(ingredients).to.be.an('array').and.have.lengthOf.above(0);",
+                  "    pm.expect(steps).to.be.an('array').and.have.lengthOf.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Recipe (Tomato Stew Base)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"title\": \"Nigerian Tomato Stew Base\",\n  \"description\": \"Versatile fried tomato-pepper sauce used as the foundation for jollof rice, stewed chicken, fish stew and more.\",\n  \"servings\": 8,\n  \"prep_minutes\": 10,\n  \"cook_minutes\": 35,\n  \"ingredients\": [\n    {\"raw\":\"6 large plum tomatoes\",\"qty\":6,\"qtyMax\":null,\"unit\":null,\"name\":\"plum tomatoes\",\"note\":null,\"group\":\"base\",\"warn\":false},\n    {\"raw\":\"3 red bell peppers (tatashe)\",\"qty\":3,\"qtyMax\":null,\"unit\":null,\"name\":\"red bell peppers\",\"note\":\"tatashe\",\"group\":\"base\",\"warn\":false},\n    {\"raw\":\"1 habanero or scotch bonnet pepper\",\"qty\":1,\"qtyMax\":null,\"unit\":null,\"name\":\"scotch bonnet\",\"note\":\"optional — adjust to taste\",\"group\":\"base\",\"warn\":true},\n    {\"raw\":\"1 medium onion\",\"qty\":1,\"qtyMax\":null,\"unit\":null,\"name\":\"onion\",\"note\":null,\"group\":\"base\",\"warn\":false},\n    {\"raw\":\"1/3 cup vegetable oil or palm oil\",\"qty\":0.33,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"vegetable oil\",\"note\":\"or palm oil for richer colour\",\"group\":null,\"warn\":false},\n    {\"raw\":\"1 tsp curry\",\"qty\":1,\"qtyMax\":null,\"unit\":\"tsp\",\"name\":\"curry powder\",\"note\":null,\"group\":\"seasoning\",\"warn\":false},\n    {\"raw\":\"1 tsp thyme\",\"qty\":1,\"qtyMax\":null,\"unit\":\"tsp\",\"name\":\"thyme\",\"note\":null,\"group\":\"seasoning\",\"warn\":false},\n    {\"raw\":\"2 seasoning cubes\",\"qty\":2,\"qtyMax\":null,\"unit\":null,\"name\":\"seasoning cubes\",\"note\":null,\"group\":\"seasoning\",\"warn\":false},\n    {\"raw\":\"salt to taste\",\"qty\":null,\"qtyMax\":null,\"unit\":null,\"name\":\"salt\",\"note\":null,\"group\":\"seasoning\",\"warn\":false}\n  ],\n  \"steps\": [\n    {\"text\":\"Roughly chop tomatoes, peppers and onion; blend until smooth.\"},\n    {\"text\":\"Pour the blended mix into a pot and boil for 10 minutes to reduce excess water.\"},\n    {\"text\":\"Heat oil in a wide pan over medium-high heat. Add sliced onion and fry 2 minutes.\"},\n    {\"text\":\"Add the reduced tomato purée. It will splatter — use a splatter guard. Stir and fry for 20-25 minutes until the oil rises to the surface.\"},\n    {\"text\":\"Season with curry, thyme, seasoning cubes and salt. Cook a further 5 minutes then cool and store.\"}\n  ],\n  \"notes\": \"Keeps refrigerated for up to 5 days. Freeze in portions for up to 3 months.\",\n  \"source_url\": \"\",\n  \"source_name\": \"Home kitchen\",\n  \"tags\": [\"Nigerian\", \"sauce\", \"base\", \"West African\", \"batch-cook\"],\n  \"is_favorite\": true,\n  \"times_cooked\": 12,\n  \"client_updated_at\": \"2026-01-16T08:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Create a second recipe — Tomato Stew Base — to populate list tests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('is_favorite is true', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.is_favorite).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Recipes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?sort=-created&perPage=20&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "sort", "value": "-created" },
+                { "key": "perPage", "value": "20" },
+                { "key": "page", "value": "1" }
+              ]
+            },
+            "description": "List all recipes for the authenticated user, sorted by most recently created."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has items array', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('items');",
+                  "    pm.expect(json.items).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Pagination fields present', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.all.keys(['page', 'perPage', 'totalItems', 'totalPages', 'items']);",
+                  "});",
+                  "",
+                  "pm.test('At least one recipe returned', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Single Recipe",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{recipeId}}"]
+            },
+            "description": "Fetch a single recipe by ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('id matches recipeId variable', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.id).to.eql(pm.collectionVariables.get('recipeId'));",
+                  "});",
+                  "",
+                  "pm.test('Required fields present', function () {",
+                  "    const json = pm.response.json();",
+                  "    ['id', 'owner', 'title', 'ingredients', 'steps', 'created', 'updated'].forEach(field => {",
+                  "        pm.expect(json).to.have.property(field);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Recipe (Mark Favourite)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_favorite\": true,\n  \"client_updated_at\": \"2026-01-15T11:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{recipeId}}"]
+            },
+            "description": "Mark a recipe as favourite. PATCH with partial payload."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('is_favorite is now true', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.is_favorite).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Recipe (Increment Times Cooked)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"times_cooked\": 1,\n  \"last_cooked_at\": \"2026-01-20T18:30:00.000Z\",\n  \"client_updated_at\": \"2026-01-20T18:35:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{recipeId}}"]
+            },
+            "description": "Increment the times_cooked counter and record last_cooked_at timestamp."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('times_cooked updated', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.times_cooked).to.be.a('number').and.to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('last_cooked_at set', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.last_cooked_at).to.be.a('string').and.have.lengthOf.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter Recipes by Tag",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=tags~'Nigerian'&sort=-created&perPage=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "tags~'Nigerian'" },
+                { "key": "sort", "value": "-created" },
+                { "key": "perPage", "value": "20" }
+              ]
+            },
+            "description": "Filter recipes where the tags JSON array contains 'Nigerian'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Items array present', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Recipes by Title",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=title~'Jollof'&sort=title&perPage=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "title~'Jollof'" },
+                { "key": "sort", "value": "title" },
+                { "key": "perPage", "value": "20" }
+              ]
+            },
+            "description": "Full-text style search on recipe title using PocketBase ~ (like) operator."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Returned recipes contain Jollof in title', function () {",
+                  "    const json = pm.response.json();",
+                  "    json.items.forEach(item => {",
+                  "        pm.expect(item.title.toLowerCase()).to.include('jollof');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter Favourites",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=is_favorite=true&sort=-updated&perPage=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "is_favorite=true" },
+                { "key": "sort", "value": "-updated" },
+                { "key": "perPage", "value": "20" }
+              ]
+            },
+            "description": "List only favourite recipes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All returned items are favourites', function () {",
+                  "    const json = pm.response.json();",
+                  "    json.items.forEach(item => {",
+                  "        pm.expect(item.is_favorite).to.be.true;",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Recipes - Edge Cases",
+      "item": [
+        {
+          "name": "Create Recipe - Missing Title",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"description\": \"A recipe with no title\",\n  \"ingredients\": [],\n  \"steps\": [],\n  \"client_updated_at\": \"2026-01-15T10:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Attempt to create a recipe without a required title field. Expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 for missing title', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error response has data field', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('data');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Recipe - Unauthenticated",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"someUserId\",\n  \"title\": \"Stolen Recipe Attempt\",\n  \"ingredients\": [],\n  \"steps\": [],\n  \"client_updated_at\": \"2026-01-15T10:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Attempt to create a recipe with no auth token. Expects 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 or 403 when unauthenticated', function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Non-Existent Recipe",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/doesnotexist00000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "doesnotexist00000"]
+            },
+            "description": "Fetch a recipe with an invalid/non-existent ID. Expects 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error message present', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Recipe - Attempt Owner Reassign",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"anotherUserId0000\",\n  \"title\": \"Hijacked Recipe\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{recipeId}}"]
+            },
+            "description": "Attempt to change the owner field. API rule `@request.body.owner:isset = false` should reject this with 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403 — owner reassign blocked', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Recipes - Unauthenticated",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Attempt to list recipes with no auth. API rule requires auth — expects 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401 or 403 — unauthenticated list rejected', function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Recipes - Soft Delete",
+      "item": [
+        {
+          "name": "Soft Delete Recipe (Set deleted_at)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deleted_at\": \"2026-01-21T09:00:00.000Z\",\n  \"client_updated_at\": \"2026-01-21T09:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{recipeId}}"]
+            },
+            "description": "Soft-delete a recipe by setting deleted_at. The record remains in PocketBase."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('deleted_at is set', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.deleted_at).to.be.a('string').and.have.lengthOf.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm Soft-Deleted Recipe Still Fetchable",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{recipeId}}"]
+            },
+            "description": "Soft-deleted record should still be accessible by ID (not hard-deleted)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 — record still exists', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('deleted_at is populated', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.deleted_at).to.be.a('string').and.have.lengthOf.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore Soft-Deleted Recipe",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deleted_at\": \"\",\n  \"client_updated_at\": \"2026-01-21T09:30:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{recipeId}}"]
+            },
+            "description": "Restore a soft-deleted recipe by clearing deleted_at."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('deleted_at is cleared', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(!json.deleted_at || json.deleted_at === '').to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Shopping Lists",
+      "item": [
+        {
+          "name": "Create Shopping List",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"name\": \"Weekend Market Run\",\n  \"archived\": false,\n  \"client_updated_at\": \"2026-01-22T07:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records"]
+            },
+            "description": "Create a new shopping list. Saves listId to collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('id present and saved', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.collectionVariables.set('listId', json.id);",
+                  "});",
+                  "",
+                  "pm.test('name matches', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.name).to.eql('Weekend Market Run');",
+                  "});",
+                  "",
+                  "pm.test('archived defaults to false', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.archived).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Shopping Lists",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records?sort=-created&perPage=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records"],
+              "query": [
+                { "key": "sort", "value": "-created" },
+                { "key": "perPage", "value": "20" }
+              ]
+            },
+            "description": "Fetch all shopping lists for the authenticated user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Items array present', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items).to.be.an('array');",
+                  "    pm.expect(json.items.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Shopping List",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records/{{listId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records", "{{listId}}"]
+            },
+            "description": "Fetch a single shopping list by ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('id matches listId variable', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.id).to.eql(pm.collectionVariables.get('listId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rename Shopping List",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Weekend Market Run (Updated)\",\n  \"client_updated_at\": \"2026-01-22T08:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records/{{listId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records", "{{listId}}"]
+            },
+            "description": "Rename an existing shopping list."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Name updated', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.name).to.include('Updated');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Archive Shopping List",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"archived\": true,\n  \"client_updated_at\": \"2026-01-22T09:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records/{{listId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records", "{{listId}}"]
+            },
+            "description": "Archive a shopping list."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('archived is true', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.archived).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete Shopping List",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deleted_at\": \"2026-01-22T10:00:00.000Z\",\n  \"client_updated_at\": \"2026-01-22T10:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records/{{listId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records", "{{listId}}"]
+            },
+            "description": "Soft-delete a shopping list by setting deleted_at."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('deleted_at is set', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.deleted_at).to.be.a('string').and.have.lengthOf.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Shopping Items",
+      "item": [
+        {
+          "name": "Create Shopping Item (from recipe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"list\": \"{{listId}}\",\n  \"name\": \"long grain parboiled rice\",\n  \"merge_key\": \"long-grain-parboiled-rice\",\n  \"quantity\": 2,\n  \"unit\": \"cup\",\n  \"aisle\": \"grains\",\n  \"checked\": false,\n  \"origin\": \"recipe\",\n  \"sources\": [{\"recipeId\":\"{{recipeId}}\",\"recipeTitle\":\"Nigerian Jollof Rice\",\"qty\":2,\"unit\":\"cup\"}],\n  \"note\": \"\",\n  \"sort_order\": 0,\n  \"client_updated_at\": \"2026-01-22T07:05:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records"]
+            },
+            "description": "Add a shopping item sourced from a recipe. Saves itemId to collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('id present and saved', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.collectionVariables.set('itemId', json.id);",
+                  "});",
+                  "",
+                  "pm.test('list relation set correctly', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.list).to.eql(pm.collectionVariables.get('listId'));",
+                  "});",
+                  "",
+                  "pm.test('origin is recipe', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.origin).to.eql('recipe');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Shopping Item (manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"list\": \"{{listId}}\",\n  \"name\": \"palm oil\",\n  \"merge_key\": \"palm-oil\",\n  \"quantity\": 1,\n  \"unit\": \"bottle\",\n  \"aisle\": \"cooking oils\",\n  \"checked\": false,\n  \"origin\": \"manual\",\n  \"sources\": [],\n  \"note\": \"Get the unrefined type\",\n  \"sort_order\": 1,\n  \"client_updated_at\": \"2026-01-22T07:10:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records"]
+            },
+            "description": "Add a manually-entered shopping item."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('origin is manual', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.origin).to.eql('manual');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Items for a List",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records?filter=list='{{listId}}'&sort=sort_order&perPage=200",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records"],
+              "query": [
+                { "key": "filter", "value": "list='{{listId}}'" },
+                { "key": "sort", "value": "sort_order" },
+                { "key": "perPage", "value": "200" }
+              ]
+            },
+            "description": "Fetch all items belonging to a specific shopping list, sorted by sort_order."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Items returned for the list', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items).to.be.an('array').and.have.lengthOf.above(0);",
+                  "});",
+                  "",
+                  "pm.test('All items belong to the correct list', function () {",
+                  "    const json = pm.response.json();",
+                  "    const listId = pm.collectionVariables.get('listId');",
+                  "    json.items.forEach(item => {",
+                  "        pm.expect(item.list).to.eql(listId);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Item (Mark Purchased)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checked\": true,\n  \"client_updated_at\": \"2026-01-22T11:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records", "{{itemId}}"]
+            },
+            "description": "Mark a shopping item as checked/purchased."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('checked is true', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.checked).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Uncheck Item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checked\": false,\n  \"client_updated_at\": \"2026-01-22T11:05:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records", "{{itemId}}"]
+            },
+            "description": "Uncheck a shopping item."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('checked is false', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.checked).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Item Quantity and Note",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 4,\n  \"unit\": \"cup\",\n  \"note\": \"Doubled for party batch\",\n  \"client_updated_at\": \"2026-01-22T11:15:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records", "{{itemId}}"]
+            },
+            "description": "Update quantity and note on an existing shopping item."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Quantity updated to 4', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.quantity).to.eql(4);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Soft Delete Shopping Item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deleted_at\": \"2026-01-22T12:00:00.000Z\",\n  \"client_updated_at\": \"2026-01-22T12:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records", "{{itemId}}"]
+            },
+            "description": "Soft-delete a shopping item by setting deleted_at."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('deleted_at is populated', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.deleted_at).to.be.a('string').and.have.lengthOf.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Sync - Pull",
+      "item": [
+        {
+          "name": "Pull Recipes Since Cursor (Initial)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=updated>='2020-01-01 00:00:00.000Z'&sort=updated,id&perPage=200&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "updated>='2020-01-01 00:00:00.000Z'" },
+                { "key": "sort", "value": "updated,id" },
+                { "key": "perPage", "value": "200" },
+                { "key": "page", "value": "1" }
+              ]
+            },
+            "description": "Initial full pull — cursor set to epoch. Returns all recipe records sorted by updated,id for stable pagination."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Pagination metadata present', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('totalItems');",
+                  "    pm.expect(json).to.have.property('totalPages');",
+                  "    pm.expect(json).to.have.property('items');",
+                  "});",
+                  "",
+                  "pm.test('Items sorted by updated ascending', function () {",
+                  "    const json = pm.response.json();",
+                  "    if (json.items.length > 1) {",
+                  "        for (let i = 1; i < json.items.length; i++) {",
+                  "            pm.expect(json.items[i].updated >= json.items[i-1].updated).to.be.true;",
+                  "        }",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Save pull cursor from last item', function () {",
+                  "    const json = pm.response.json();",
+                  "    if (json.items.length > 0) {",
+                  "        const lastUpdated = json.items[json.items.length - 1].updated;",
+                  "        pm.collectionVariables.set('syncCursor', lastUpdated);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pull Recipes Since Cursor (Incremental)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=updated>='{{syncCursor}}'&sort=updated,id&perPage=200&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "updated>='{{syncCursor}}'" },
+                { "key": "sort", "value": "updated,id" },
+                { "key": "perPage", "value": "200" },
+                { "key": "page", "value": "1" }
+              ]
+            },
+            "description": "Incremental pull — cursor set from previous sync. Only returns records updated since last sync."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Items array present (may be empty on no changes)', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pull Shopping Lists Since Cursor",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records?filter=updated>='2020-01-01 00:00:00.000Z'&sort=updated,id&perPage=200",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records"],
+              "query": [
+                { "key": "filter", "value": "updated>='2020-01-01 00:00:00.000Z'" },
+                { "key": "sort", "value": "updated,id" },
+                { "key": "perPage", "value": "200" }
+              ]
+            },
+            "description": "Pull all shopping_lists changes since cursor."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Items array present', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pull Shopping Items Since Cursor",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records?filter=updated>='2020-01-01 00:00:00.000Z'&sort=updated,id&perPage=200",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records"],
+              "query": [
+                { "key": "filter", "value": "updated>='2020-01-01 00:00:00.000Z'" },
+                { "key": "sort", "value": "updated,id" },
+                { "key": "perPage", "value": "200" }
+              ]
+            },
+            "description": "Pull all shopping_items changes since cursor."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Items array present', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pull - Paginated Page 2",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=updated>='2020-01-01 00:00:00.000Z'&sort=updated,id&perPage=200&page=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "updated>='2020-01-01 00:00:00.000Z'" },
+                { "key": "sort", "value": "updated,id" },
+                { "key": "perPage", "value": "200" },
+                { "key": "page", "value": "2" }
+              ]
+            },
+            "description": "Fetch page 2 to verify pagination when total > 200 records."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('page field equals 2', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.page).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Sync - Push",
+      "item": [
+        {
+          "name": "Push - Create Recipe via Outbox",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"title\": \"Egusi Soup\",\n  \"description\": \"Rich melon seed soup cooked with leafy greens, stockfish and assorted meats.\",\n  \"servings\": 4,\n  \"prep_minutes\": 30,\n  \"cook_minutes\": 60,\n  \"ingredients\": [\n    {\"raw\":\"1 cup ground egusi (melon seeds)\",\"qty\":1,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"ground egusi\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"500g assorted meats (tripe, goat, oxtail)\",\"qty\":500,\"qtyMax\":null,\"unit\":\"g\",\"name\":\"assorted meats\",\"note\":null,\"group\":\"protein\",\"warn\":false},\n    {\"raw\":\"2 cups palm oil\",\"qty\":2,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"palm oil\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"3 cups spinach or ugu (fluted pumpkin leaves)\",\"qty\":3,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"fluted pumpkin leaves\",\"note\":\"or spinach\",\"group\":\"greens\",\"warn\":false}\n  ],\n  \"steps\": [\n    {\"text\":\"Boil and season the assorted meats with onion, seasoning cubes and salt until tender, about 30 minutes. Reserve the stock.\"},\n    {\"text\":\"Heat palm oil in a pot over medium heat. Mix egusi with a little water into a paste and add to the oil. Fry, stirring, for 5 minutes.\"},\n    {\"text\":\"Add meat stock, blended peppers and cooked meats. Stir and cook 20 minutes.\"},\n    {\"text\":\"Add washed greens and stockfish (if using). Cook 5-10 minutes more. Adjust salt and serve with eba or pounded yam.\"}\n  ],\n  \"notes\": \"Use fresh ugu leaves for authentic flavour.\",\n  \"tags\": [\"Nigerian\", \"soup\", \"West African\"],\n  \"is_favorite\": false,\n  \"times_cooked\": 0,\n  \"client_updated_at\": \"2026-01-23T14:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Simulate an outbox push for a CREATE operation (new recipe — Egusi Soup)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 — push create succeeded', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Server id assigned', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.id).to.be.a('string').and.have.lengthOf.above(0);",
+                  "    pm.collectionVariables.set('outboxRecipeId', json.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Push - Update Recipe via Outbox",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Add crayfish for deeper umami. Use fresh ugu leaves for authentic flavour.\",\n  \"client_updated_at\": \"2026-01-23T15:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{outboxRecipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{outboxRecipeId}}"]
+            },
+            "description": "Simulate an outbox push for an UPDATE operation on the Egusi Soup recipe."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 — push update succeeded', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('notes field updated', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.notes).to.include('crayfish');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Push - Soft Delete Recipe via Outbox",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deleted_at\": \"2026-01-23T16:00:00.000Z\",\n  \"client_updated_at\": \"2026-01-23T16:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{outboxRecipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{outboxRecipeId}}"]
+            },
+            "description": "Simulate an outbox push for a soft DELETE. No hard delete — only sets deleted_at."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 — soft delete push succeeded', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('deleted_at timestamp set by server', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.deleted_at).to.be.a('string').and.have.lengthOf.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Push - Duplicate Create (Idempotency)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{outboxRecipeId}}\",\n  \"owner\": \"{{userId}}\",\n  \"title\": \"Egusi Soup\",\n  \"description\": \"Duplicate create attempt with the same id.\",\n  \"ingredients\": [],\n  \"steps\": [],\n  \"client_updated_at\": \"2026-01-23T14:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Simulate a duplicate outbox create with the same id. PocketBase returns an error; client should treat this as a no-op and do a GET to confirm."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Duplicate create returns 400 or 409', function () {",
+                  "    pm.expect([400, 409]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('Error message indicates duplicate', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Sync - Conflict",
+      "item": [
+        {
+          "name": "Setup - Create Fresh Recipe for Conflict Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"{{userId}}\",\n  \"title\": \"Puff Puff\",\n  \"description\": \"Classic Nigerian fried dough balls. Sweet, fluffy, addictive.\",\n  \"servings\": 20,\n  \"prep_minutes\": 10,\n  \"cook_minutes\": 20,\n  \"ingredients\": [\n    {\"raw\":\"2 cups plain flour\",\"qty\":2,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"plain flour\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"1 tsp active dry yeast\",\"qty\":1,\"qtyMax\":null,\"unit\":\"tsp\",\"name\":\"active dry yeast\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"1/2 cup sugar\",\"qty\":0.5,\"qtyMax\":null,\"unit\":\"cup\",\"name\":\"sugar\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"warm water to mix\",\"qty\":null,\"qtyMax\":null,\"unit\":null,\"name\":\"warm water\",\"note\":null,\"group\":null,\"warn\":false},\n    {\"raw\":\"vegetable oil for frying\",\"qty\":null,\"qtyMax\":null,\"unit\":null,\"name\":\"vegetable oil\",\"note\":\"for frying\",\"group\":null,\"warn\":false}\n  ],\n  \"steps\": [\n    {\"text\":\"Combine flour, yeast, sugar and salt. Add enough warm water to form a thick batter. Cover and leave to proof for 1 hour.\"},\n    {\"text\":\"Heat oil to 170°C. Scoop batter with a wet spoon and drop gently into the oil. Fry until golden all over, about 3-4 minutes.\"}\n  ],\n  \"notes\": \"\",\n  \"tags\": [\"Nigerian\", \"snack\", \"fried\"],\n  \"is_favorite\": false,\n  \"times_cooked\": 0,\n  \"client_updated_at\": \"2026-01-24T10:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Create a recipe to use in the stale-write conflict test."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Save conflictRecipeId', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('conflictRecipeId', json.id);",
+                  "    pm.collectionVariables.set('conflictRecipeUpdated', json.updated);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Server-Side Update (Simulate Remote Write)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Server updated: add a pinch of nutmeg.\",\n  \"client_updated_at\": \"2026-01-24T10:30:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{conflictRecipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{conflictRecipeId}}"]
+            },
+            "description": "Simulate a newer write from another device — advances server's client_updated_at."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 — server write succeeded', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stale Write (Conflict Scenario — expects 409 from hook)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Stale client write: add vanilla.\",\n  \"client_updated_at\": \"2026-01-24T09:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{conflictRecipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{conflictRecipeId}}"]
+            },
+            "description": "Submit an update with an older client_updated_at than the current server value. The PocketBase hook should return 409 stale_write to signal a conflict."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Stale write returns 409 or 400 (hook rejects)', function () {",
+                  "    pm.expect([400, 409]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('Response contains conflict indicator', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('message');",
+                  "    // hook may embed 'stale_write' or 'conflict' in message",
+                  "    // pm.expect(json.message.toLowerCase()).to.satisfy(msg => msg.includes('stale') || msg.includes('conflict'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conflict Resolution - GET Latest to Re-base",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records/{{conflictRecipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records", "{{conflictRecipeId}}"]
+            },
+            "description": "After a 409 conflict, the client fetches the latest server version to re-base the local changes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 — latest version fetchable', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('notes reflects server version (not stale client)', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.notes).to.include('nutmeg');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Security",
+      "item": [
+        {
+          "name": "Cross-User Recipe Access Rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=owner!='{{userId}}'&perPage=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "owner!='{{userId}}'" },
+                { "key": "perPage", "value": "5" }
+              ]
+            },
+            "description": "Attempt to list recipes owned by other users. API rule `owner = @request.auth.id` means PocketBase returns an empty list rather than a 403 — no cross-user data should leak."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 but returns empty list', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items).to.be.an('array').and.have.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unauthenticated Recipe Access Rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Access recipe collection with no token. Expects 401 or 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unauthenticated access to recipes rejected', function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unauthenticated Shopping Lists Access Rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_lists/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_lists", "records"]
+            },
+            "description": "Access shopping_lists with no token. Expects 401 or 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unauthenticated access to shopping_lists rejected', function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unauthenticated Shopping Items Access Rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/shopping_items/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "shopping_items", "records"]
+            },
+            "description": "Access shopping_items with no token. Expects 401 or 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unauthenticated access to shopping_items rejected', function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Expired / Invalid Token Rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImZha2VpZCIsInR5cGUiOiJhdXRoUmVjb3JkIiwiY29sbGVjdGlvbklkIjoiX3BiX3VzZXJzX2F1dGhfIiwiZXhwIjoxNjAwMDAwMDAwfQ.invalid_signature" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"]
+            },
+            "description": "Use a clearly expired/invalid JWT. Expects 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid token returns 401', function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SQL Injection in Filter Rejected",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "{{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/recipes/records?filter=title='x' OR 1=1 --",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "recipes", "records"],
+              "query": [
+                { "key": "filter", "value": "title='x' OR 1=1 --" }
+              ]
+            },
+            "description": "Send a SQL-injection-style filter. PocketBase should sanitise it — no extra records should be returned."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 400 — no crash', function () {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('Does not return all records (injection not effective)', function () {",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        // items should be empty or only own records — not every record in db",
+                  "        pm.expect(json.items).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
