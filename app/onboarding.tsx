@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { buildStarterRecipes } from '@/data/starterRecipes';
 import { ensureDatabaseInitialized, getDbExecutor, notifyDbChanged } from '@/db/client';
 import { importRecipesBatch } from '@/db/repositories/recipes';
@@ -9,7 +10,7 @@ import { markOnboardingCompleted } from '@/db/repositories/settings';
 import { now } from '@/lib/clock';
 import { Button, Card, Screen } from '@/ui/components';
 import { useTheme } from '@/ui/ThemeContext';
-import { SPACING, TYPOGRAPHY } from '@/ui/tokens';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/ui/tokens';
 
 export default function OnboardingScreen() {
   const { colors } = useTheme();
@@ -30,31 +31,60 @@ export default function OnboardingScreen() {
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <View style={styles.container}>
-        <View style={{ flex: 1, justifyContent: 'center' }}>
-          <View
-            style={[
-              styles.logoBadge,
-              { backgroundColor: colors.primarySoft, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="restaurant" size={36} color={colors.primary} />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBrandRow}>
+          <View style={styles.brandLockup}>
+            <View
+              style={[
+                styles.logoBadge,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Image
+                source={require('../assets/logo.png')}
+                style={styles.logoImage}
+                contentFit="contain"
+                accessibilityLabel="Ladleful logo"
+              />
+            </View>
+            <Text style={[TYPOGRAPHY.subheading, { color: colors.text, marginLeft: SPACING.sm }]}>
+              Ladleful
+            </Text>
           </View>
+          <View style={[styles.offlinePill, { backgroundColor: colors.primarySoft }]}>
+            <Text style={[TYPOGRAPHY.caption, { color: colors.primary, fontWeight: '600' }]}>
+              Offline-first
+            </Text>
+          </View>
+        </View>
 
-          <Text style={[TYPOGRAPHY.title, { color: colors.text, marginTop: SPACING.xl }]}>
+        <View style={[styles.heroWrap, { backgroundColor: '#F6F7F3', borderColor: colors.border }]}>
+          <Image
+            source={require('../assets/landing-hero.png')}
+            style={styles.heroImage}
+            contentFit="contain"
+            accessibilityLabel="Illustrated wooden recipe box with recipe cards and ladle"
+          />
+        </View>
+
+        <View style={styles.copySection}>
+          <Text style={[TYPOGRAPHY.title, { color: colors.text }]}>
             Your kitchen recipe box, always offline.
           </Text>
           <Text
             style={[
               TYPOGRAPHY.body,
-              { color: colors.textSecondary, marginTop: SPACING.md, lineHeight: 24 },
+              { color: colors.textSecondary, marginTop: SPACING.sm, lineHeight: 23 },
             ]}
           >
             Keep recipes on your phone. Search in milliseconds, scale servings cleanly, cook with a
             screen that stays awake, and merge ingredients into one shopping list.
           </Text>
 
-          <Card style={{ marginTop: SPACING.xl }}>
+          <Card style={{ marginTop: SPACING.lg }}>
             <View style={styles.row}>
               <View style={{ flex: 1, paddingRight: SPACING.md }}>
                 <Text style={[TYPOGRAPHY.subheading, { color: colors.text }]}>
@@ -90,25 +120,64 @@ export default function OnboardingScreen() {
           </View>
         </View>
 
-        <Button title="Open my recipe box" onPress={handleStart} loading={starting} />
-      </View>
+        <View style={{ marginTop: SPACING.lg }}>
+          <Button title="Open my recipe box" onPress={handleStart} loading={starting} />
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.xl,
   },
+  topBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   logoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 28,
+    height: 28,
+  },
+  offlinePill: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.pill,
+  },
+  heroWrap: {
+    marginTop: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 210,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  copySection: {
+    marginTop: SPACING.lg,
   },
   row: {
     flexDirection: 'row',
@@ -117,7 +186,7 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     gap: SPACING.lg,
-    marginTop: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   featureItem: {
     flexDirection: 'row',
